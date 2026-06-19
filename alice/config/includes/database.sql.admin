@@ -1,0 +1,57 @@
+-- ==============================================
+-- ADDITIONAL SQL for Admin Panel
+-- Run this in phpMyAdmin
+-- ==============================================
+
+USE alice_collection;
+
+-- Admin users table
+CREATE TABLE admin_users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    full_name VARCHAR(255),
+    role ENUM('admin', 'manager', 'staff') DEFAULT 'staff',
+    is_active BOOLEAN DEFAULT TRUE,
+    last_login DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default admin (username: admin, password: admin123)
+-- Password is hashed using password_hash()
+INSERT INTO admin_users (username, password, email, full_name, role) 
+VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@alicecollection.co.ke', 'Administrator', 'admin');
+
+-- Sales analytics table
+CREATE TABLE sales_analytics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    date DATE NOT NULL,
+    total_sales DECIMAL(10,2) DEFAULT 0,
+    order_count INT DEFAULT 0,
+    average_order_value DECIMAL(10,2) DEFAULT 0,
+    UNIQUE KEY unique_date (date)
+);
+
+-- Product views tracking
+CREATE TABLE product_views (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    product_id INT,
+    ip_address VARCHAR(45),
+    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- Create trigger to update analytics daily
+DELIMITER //
+CREATE TRIGGER update_sales_analytics AFTER INSERT ON orders
+FOR EACH ROW
+BEGIN
+    INSERT INTO sales_analytics (date, total_sales, order_count, average_order_value)
+    VALUES (DATE(NEW.created_at), NEW.total_amount, 1, NEW.total_amount)
+    ON DUPLICATE KEY UPDATE
+    total_sales = total_sales + NEW.total_amount,
+    order_count = order_count + 1,
+    average_order_value = total_sales / order_count;
+END//
+DELIMITER ;
